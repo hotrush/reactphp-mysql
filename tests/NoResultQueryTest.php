@@ -16,14 +16,15 @@ class NoResultQueryTest extends  BaseTestCase
             'passwd' => 'test',
         ));
 
-        $connection->connect(function () {});
-        $that  = $this;
+        $connection->connect();
 
-        $connection->query('update book set created=999 where id=1', function ($command, $conn) use ($loop) {
+        $connection->query('update book set created=999 where id=1')->then(function ($command) use ($loop) {
+            $loop->stop();
+
             $this->assertEquals(false, $command->hasError());
             $this->assertEquals(1, $command->affectedRows);
-            $loop->stop();
         });
+
         $loop->run();
     }
 
@@ -37,14 +38,16 @@ class NoResultQueryTest extends  BaseTestCase
             'passwd' => 'test',
         ));
 
-        $connection->connect(function () {});
+        $connection->connect();
 
-        $connection->query("insert into book (`name`) values('foo')", function ($command, $conn) use ($loop) {
+        $connection->query("insert into book (`name`) values('foo')")->then(function ($command) use ($loop) {
+            $loop->stop();
+
             $this->assertEquals(false, $command->hasError());
             $this->assertEquals(1, $command->affectedRows);
             $this->assertEquals(3, $command->insertId);
-            $loop->stop();
         });
+
         $loop->run();
     }
 }
