@@ -17,11 +17,16 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $loop = \React\EventLoop\Factory::create();
         $conn = new Connection($loop, array('passwd' => 'invalidpass') + $this->connectOptions );
 
-        $conn->connect(function ($err, $conn) use ($loop) {
-            $this->assertEquals("Access denied for user 'test'@'localhost' (using password: YES)", $err->getMessage());
-            $this->assertInstanceOf('React\MySQL\Connection', $conn);
-            //$loop->stop();
-        });
+        $conn->connect()->then(
+            function () use ($loop) {
+                $loop->stop();
+                $this->fail();
+            },
+            function ($err) {
+                $this->assertEquals("Access denied for user 'test'@'localhost' (using password: YES)", $err->getMessage());
+            }
+        );
+
         $loop->run();
     }
 
@@ -42,18 +47,34 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
             echo 'close';
         });
 
-        $conn->connect(function ($err, $conn) use ($loop) {
-            $this->assertEquals(null, $err);
-            $this->assertInstanceOf('React\MySQL\Connection', $conn);
-        });
+        $conn->connect()->then(
+            function ($conn) {
+                $this->assertInstanceOf('React\MySQL\Connection', $conn);
+            },
+            function () use ($loop) {
+                $loop->stop();
+                $this->fail();
+            }
+        );
 
-        $conn->ping(function ($err, $conn) use ($loop) {
-            $this->assertEquals(null, $err);
-            $conn->close(function ($conn) {
-                $this->assertEquals($conn::STATE_CLOSED, $conn->getState());
-            });
-            //$loop->stop();
-        });
+        $conn->ping()->then(
+            function ($conn) use ($loop) {
+                $conn->close(
+                    function ($conn) {
+                        $this->assertEquals($conn::STATE_CLOSED, $conn->getState());
+                    },
+                    function () use ($loop) {
+                        $loop->stop();
+                        $this->fail();
+                    }
+                );
+            },
+            function () use ($loop) {
+                $loop->stop();
+                $this->fail();
+            }
+        );
+
         $loop->run();
     }
 }

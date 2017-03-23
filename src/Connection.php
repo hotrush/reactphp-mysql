@@ -10,6 +10,8 @@ use React\MySQL\Commands\PingCommand;
 use React\MySQL\Commands\QueryCommand;
 use React\MySQL\Commands\QuitCommand;
 use React\Socket\ConnectionException;
+use React\Promise\Deferred;
+use React\Promise\PromiseInterface;
 
 class Connection extends EventEmitter
 {
@@ -60,62 +62,56 @@ class Connection extends EventEmitter
     /**
      * Do a async query.
      *
-     * @param  string                    $sql
-     *                                             @param mixed ...
-     * @param  callable                  $callback
-     * @return \React\MySQL\Command|NULL
+     * @param string $sql
+     * @param mixed  $args...
+     * @return PromiseInterface Promise <QueryCommand, Exception>
      */
-    public function query()
+    public function query($sql)
     {
-        $numArgs = func_num_args();
-
-        if ($numArgs === 0) {
-            throw new \InvalidArgumentException('Required at least 1 argument');
-        }
-
         $args = func_get_args();
-        $query = new Query(array_shift($args));
+        array_shift($args);
 
-        $callback = array_pop($args);
+        $query = new Query($sql);
 
         $command = new QueryCommand($this);
         $command->setQuery($query);
 
-        if (!is_callable($callback)) {
-            if ($callback != null) {
-                $args[] = $callback;
-            }
-            $query->bindParamsFromArray($args);
-
-            return $this->_doCommand($command);
-        }
-
         $query->bindParamsFromArray($args);
         $this->_doCommand($command);
 
-        $command->on('results', function ($rows, $command) use ($callback) {
-            $callback($command, $this);
+        $deferred = new Deferred();
+
+        $command->on('results', function ($rows, $command) use ($deferred) {
+            $deferred->resolve($command);
         });
-        $command->on('error', function ($err, $command) use ($callback) {
-            $callback($command, $this);
+        $command->on('error', function ($err, $command) use ($deferred) {
+            $deferred->reject($err);
         });
-        $command->on('success', function ($command) use ($callback) {
-            $callback($command, $this);
+        $command->on('success', function ($command) use ($deferred) {
+            $deferred->resolve($command);
         });
+
+        return $deferred->promise();
     }
 
-    public function ping($callback)
+    /**
+     * Sends a ping to the mysql server.
+     *
+     * @return PromiseInterface Promise<Connection, Exception>
+     */
+    public function ping()
     {
-        if (!is_callable($callback)) {
-            throw new \InvalidArgumentException('Callback is not a valid callable');
-        }
+        $deferred = new Deferred();
+
         $this->_doCommand(new PingCommand($this))
-            ->on('error', function ($reason) use ($callback) {
-                $callback($reason, $this);
+            ->on('error', function ($reason) use ($deferred) {
+                $deferred->reject($reason);
             })
-            ->on('success', function () use ($callback) {
-                $callback(null, $this);
+            ->on('success', function () use ($deferred) {
+                $deferred->resolve($this);
             });
+
+        return $deferred->promise();
     }
 
     public function selectDb($dbname)
@@ -150,69 +146,71 @@ class Connection extends EventEmitter
 
     /**
      * Close the connection.
+     *
+     * @return PromiseInterface Promise<Connection>
      */
-    public function close($callback = null)
+    public function close()
     {
+        $deferred = new Deferred();
+
         $this->_doCommand(new QuitCommand($this))
-            ->on('success', function () use ($callback) {
+            ->on('success', function () use ($deferred) {
                 $this->state = self::STATE_CLOSED;
                 $this->emit('end', [$this]);
                 $this->emit('close', [$this]);
-                if ($callback) {
-                    $callback($this);
-                }
+
+                $deferred->resolve($this);
             });
         $this->state = self::STATE_CLOSEING;
+
+        return $deferred->promise();
     }
 
     /**
      * Connnect to mysql server.
      *
-     * @param callable $callback
-     *
-     * @throws \Exception
+     * @return PromiseInterface Promise<Connection, Exception>
      */
     public function connect()
     {
         $this->state = self::STATE_CONNECTING;
         $options     = $this->options;
         $streamRef   = $this->stream;
-        $args        = func_get_args();
 
-        if (count($args) > 0) {
-            $errorHandler = function ($reason) use ($args) {
-                $this->state = self::STATE_AUTHENTICATE_FAILED;
-                $args[0]($reason, $this);
-            };
-            $connectedHandler = function ($serverOptions) use ($args) {
-                $this->state = self::STATE_AUTHENTICATED;
-                $this->serverOptions = $serverOptions;
-                $args[0](null, $this);
-            };
+        $deferred = new Deferred();
 
-            $this->connector
-                ->create($this->options['host'], $this->options['port'])
-                ->then(function ($stream) use (&$streamRef, $options, $errorHandler, $connectedHandler) {
-                    $streamRef = $stream;
+        $errorHandler = function ($reason) use ($deferred) {
+            $this->state = self::STATE_AUTHENTICATE_FAILED;
+            $deferred->reject($reason);
+        };
+        $connectedHandler = function ($serverOptions) use ($deferred) {
+            $this->state = self::STATE_AUTHENTICATED;
+            $this->serverOptions = $serverOptions;
+            $deferred->resolve($this);
+        };
 
-                    $stream->on('error', [$this, 'handleConnectionError']);
-                    $stream->on('close', [$this, 'handleConnectionClosed']);
+        $this->connector
+            ->create($this->options['host'], $this->options['port'])
+            ->then(function ($stream) use (&$streamRef, $options, $errorHandler, $connectedHandler) {
+                $streamRef = $stream;
 
-                    $parser = $this->parser = new Protocal\Parser($stream, $this->executor);
+                $stream->on('error', [$this, 'handleConnectionError']);
+                $stream->on('close', [$this, 'handleConnectionClosed']);
 
-                    $parser->setOptions($options);
+                $parser = $this->parser = new Protocal\Parser($stream, $this->executor);
 
-                    $command = $this->_doCommand(new AuthenticateCommand($this));
-                    $command->on('authenticated', $connectedHandler);
-                    $command->on('error', $errorHandler);
+                $parser->setOptions($options);
 
-                    //$parser->on('close', $closeHandler);
-                    $parser->start();
+                $command = $this->_doCommand(new AuthenticateCommand($this));
+                $command->on('authenticated', $connectedHandler);
+                $command->on('error', $errorHandler);
 
-                }, [$this, 'handleConnectionError']);
-        } else {
-            throw new \Exception('Not Implemented');
-        }
+                //$parser->on('close', $closeHandler);
+                $parser->start();
+
+            }, [$this, 'handleConnectionError']);
+
+        return $deferred->promise();
     }
 
     public function handleConnectionError($err)
