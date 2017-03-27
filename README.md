@@ -1,16 +1,18 @@
 reactphp-mysql
 ===============
+Fork from [clue-labs/reactphp-mysql](https://github.com/clue-labs/reactphp-mysql), which is fork from [bixuehujin/reactphp-mysql](https://github.com/bixuehujin/reactphp-mysql).
+
+## Changes
+
+- updated reactphp dependencies
+- replace callbacks with promised-base strategy ([original branch](https://github.com/clue-labs/reactphp-mysql/tree/promises))
 
 ## Install
 
 The recommended way to install reactphp-mysql is through [composer](http://getcomposer.org).
 
 ```
-{
-    "require": {
-        "bixuehujin/reactphp-mysql": "0.2.*"
-    }
-}
+composer require hotrush/reactphp-mysql
 ```
 
 ## Introduction	
@@ -22,8 +24,5 @@ See examples for usage details.
 
 ## Thanks
 
-Thanks to the following projects.
-
-* [phpdaemon](https://github.com/kakserpom/phpdaemon): the mysql protocol implemention based some code of the project.
-* [node-mysql](https://github.com/felixge/node-mysql): take some inspirations from this project for API design.
+Thanks to [bixuehujin](https://github.com/bixuehujin) for the original repo :)
 
