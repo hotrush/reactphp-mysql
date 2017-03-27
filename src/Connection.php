@@ -3,13 +3,12 @@
 namespace React\MySQL;
 
 use React\EventLoop\LoopInterface;
-use React\Stream\Stream;
 use React\MySQL\Connector;
 use React\MySQL\Commands\AuthenticateCommand;
 use React\MySQL\Commands\PingCommand;
 use React\MySQL\Commands\QueryCommand;
 use React\MySQL\Commands\QuitCommand;
-use React\Socket\ConnectionException;
+use React\SocketClient\ConnectionException;
 use React\Promise\Deferred;
 use React\Promise\PromiseInterface;
 
@@ -116,7 +115,7 @@ class Connection extends EventEmitter
 
     public function selectDb($dbname)
     {
-        return $this->query(sprinf('USE `%s`', $dbname));
+        return $this->query(sprintf('USE `%s`', $dbname));
     }
 
     public function listFields()
