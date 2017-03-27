@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/hotrush/reactphp-mysql.svg?branch=master)](https://travis-ci.org/hotrush/reactphp-mysql)
+[![Coverage Status](https://coveralls.io/repos/github/hotrush/reactphp-mysql/badge.svg?branch=master)](https://coveralls.io/github/hotrush/reactphp-mysql?branch=master)
+
 reactphp-mysql
 ===============
 Fork from [clue-labs/reactphp-mysql](https://github.com/clue-labs/reactphp-mysql), which is fork from [bixuehujin/reactphp-mysql](https://github.com/bixuehujin/reactphp-mysql).
