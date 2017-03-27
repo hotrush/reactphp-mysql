@@ -22,10 +22,7 @@ services:
 
 before_install:
   - mysql -e 'CREATE DATABASE IF NOT EXISTS test;'
-  - mysql -e "CREATE USER 'test'@'localhost' IDENTIFIED BY 'test';"
-  - mysql -e "GRANT ALL PRIVILEGES ON *.* to 'test'@'localhost';"
-  - mysql -e 'FLUSH PRIVILEGES'
-  - mysql -e < data/book.sql
+  - mysql -e test < data/book.sql
 
 ## Update composer and run the appropriate composer command
 install:
