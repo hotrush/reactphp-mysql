@@ -8,8 +8,8 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
 {
     private $connectOptions = array(
         'dbname' => 'test',
-        'user'   => 'test',
-        'passwd' => 'test'
+        'user'   => 'travis',
+        'passwd' => ''
     );
 
     public function testConnectWithInvalidPass()
