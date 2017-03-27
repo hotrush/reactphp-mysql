@@ -22,7 +22,7 @@ services:
 
 before_install:
   - mysql -e 'CREATE DATABASE IF NOT EXISTS test;'
-  - mysql -e test < data/book.sql
+  - mysql -u travis test < data/book.sql
 
 ## Update composer and run the appropriate composer command
 install:
